@@ -94,7 +94,8 @@ def plotar_graficos(df, acao, sinais_compra, sinais_venda):
         valor = float(df.loc[i, 'Close'])
         plt.text(i, valor - 0.5, f"{valor:.2f}", color='red', fontsize=8)
 
-    plt.title(f'{acao} - Preço, MM, Bollinger e Sinais', fontsize=16, fontweight='bold')
+   # plt.title(f'{acao} - Preço, MM, Bollinger e Sinais. NÃO É RECOMENDAÇÃO DE COMPRA/VENDA.', fontsize=16, fontweight='bold')
+    plt.title(f'{acao} - Últimos {len(df)} dias - Preço, MM, Bollinger e Sinais. NÃO É RECOMENDAÇÃO DE COMPRA/VENDA.')
 
     plt.legend()
 
@@ -126,7 +127,7 @@ def plotar_graficos(df, acao, sinais_compra, sinais_venda):
 def analisar_acao(acao):
     print(f"\n📊 Analisando {acao}...")
     fim = datetime.now()
-    inicio = fim - timedelta(days=730)
+    inicio = fim - timedelta(days=360) #TROQUE AQUI OS DIAS
     df = yf.download(acao, start=inicio, end=fim, auto_adjust=True)
     if df.empty:
         print(f"⚠️ Dados não encontrados para {acao}")
@@ -135,7 +136,8 @@ def analisar_acao(acao):
     df.dropna(inplace=True)
     aplicar_indicadores(df)
 
-    print("\n📅 Período: 2 anos")
+    print("\n📅 Período: {days} DIAS")
+
     sinais_compra, sinais_venda = gerar_sinais(df, acao)
     plotar_graficos(df.copy(), acao, sinais_compra, sinais_venda)
 
@@ -195,9 +197,9 @@ def buscar_cenario_externo():
 def main():
     print("🚀 Iniciando análise de ações...\n")
     acoes = [
-        'JSLG3.SA',  # JSL
+        #'JSLG3.SA',  # JSL
         'VIVA3.SA',  # Vivara
-         #'VALE3.SA',  # Vale
+         'VALE3.SA',  # Vale
          #'INTB3.SA',  # Intelbras
          #'ARML3.SA',  # Armac
         #'VAMO3.SA',  # Grupo Vamos
