@@ -97,6 +97,14 @@ def plotar_graficos(df, acao, sinais_compra, sinais_venda):
    # plt.title(f'{acao} - Preço, MM, Bollinger e Sinais. NÃO É RECOMENDAÇÃO DE COMPRA/VENDA.', fontsize=16, fontweight='bold')
     plt.title(f'{acao} - Últimos {len(df)} dias - Preço, MM, Bollinger e Sinais. NÃO É RECOMENDAÇÃO DE COMPRA/VENDA.')
 
+    if not df.empty:
+        preco_hoje = float(df['Close'].iloc[-1])  # Garante que é float
+        plt.title(
+            f'{acao} - Últimos {len(df)} dias - Preço atual: R${preco_hoje:.2f} - Preço, MM, Bollinger e Sinais. NÃO É RECOMENDAÇÃO DE COMPRA/VENDA.',
+            fontsize=14, fontweight='bold')
+    else:
+        plt.title(f'{acao} - Dados indisponíveis', fontsize=13, fontweight='bold')
+
     plt.legend()
 
     plt.subplot(4, 1, 2)
@@ -127,7 +135,7 @@ def plotar_graficos(df, acao, sinais_compra, sinais_venda):
 def analisar_acao(acao):
     print(f"\n📊 Analisando {acao}...")
     fim = datetime.now()
-    inicio = fim - timedelta(days=360) #TROQUE AQUI OS DIAS
+    inicio = fim - timedelta(days=180) #TROQUE AQUI OS DIAS
     df = yf.download(acao, start=inicio, end=fim, auto_adjust=True)
     if df.empty:
         print(f"⚠️ Dados não encontrados para {acao}")
