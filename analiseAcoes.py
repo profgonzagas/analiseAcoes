@@ -8,6 +8,9 @@ matplotlib.use('Qt5Agg')
 import winsound
 from datetime import datetime, timedelta
 import warnings
+from tabulate import tabulate
+
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 #plt.style.use('seaborn-darkgrid')
@@ -128,14 +131,13 @@ def plotar_graficos(df, acao, sinais_compra, sinais_venda):
     plt.title('RSI')
     plt.legend()
 
-
-
     plt.tight_layout()
     plt.show()
+
 def analisar_acao(acao):
     print(f"\n📊 Analisando {acao}...")
     fim = datetime.now()
-    inicio = fim - timedelta(days=180) #TROQUE AQUI OS DIAS
+    inicio = fim - timedelta(days=380) #TROQUE AQUI OS DIAS
     df = yf.download(acao, start=inicio, end=fim, auto_adjust=True)
     if df.empty:
         print(f"⚠️ Dados não encontrados para {acao}")
@@ -149,113 +151,110 @@ def analisar_acao(acao):
     sinais_compra, sinais_venda = gerar_sinais(df, acao)
     plotar_graficos(df.copy(), acao, sinais_compra, sinais_venda)
 
-
 def buscar_cenario_externo():
-    print("\n🌍 Cenário Externo:")
+    print("\n🌍 Analisando Cenário Externo...")
+
     indices = {
         'S&P500': '^GSPC',
         'Dow Jones': '^DJI',
         'Nasdaq': '^IXIC',
-        'Dólar (USD/BRL)': 'USDBRL=X',
+        'Dólar (USD/BRL)': 'BRL=X',
         'Euro (EUR/BRL)': 'EURBRL=X',
         'Petróleo Brent': 'BZ=F',
         'Petróleo WTI': 'CL=F',
         'Ouro': 'GC=F',
         'Bitcoin': 'BTC-USD',
         'Ibovespa': '^BVSP',
+        'Índice VIX': '^VIX'
     }
 
-    variacoes = {}
-
+    dados = []
     for nome, ticker in indices.items():
-        df = yf.download(ticker, period='5d', interval='1d', auto_adjust=True, progress=False)
-        if not df.empty:
-            fechamento = float(df['Close'].iloc[-1])
-            variacao = float(df['Close'].pct_change().iloc[-1]) * 100
-            variacoes[nome] = variacao
-            print(f"{nome}: {fechamento:.2f} ({variacao:+.2f}%)")
-        else:
-            print(f"{nome}: dados não encontrados.")
+        try:
+            df = yf.download(ticker, period='5d', progress=False)
+            if df.empty:
+                continue
 
-    # 🎯 Análise simples com base nas variações
-    print("\n🧠 Análise do Cenário Externo:")
+            ultimo = float(df['Close'].iloc[-1])
+            variacao = (ultimo / float(df['Close'].iloc[-2]) - 1) * 100
+
+            if 'Dólar' in nome or 'Euro' in nome:
+                valor = f"R${ultimo:.2f}"
+            elif any(x in nome for x in ['S&P500', 'Dow Jones', 'Nasdaq', 'Ibovespa']):
+                valor = f"{ultimo:,.2f}"
+            else:
+                valor = f"{ultimo:.2f}"
+
+            dados.append([
+                nome,
+                valor,
+                f"{variacao:+.2f}%",
+                "🟢" if variacao > 0 else "🔴"
+            ])
+        except Exception as e:
+            print(f"⚠️ Erro ao processar {nome}: {str(e)}")
+
+    print("\n📊 Desempenho dos Principais Índices:")
+    if dados:
+        print(tabulate(dados, headers=["Índice", "Valor", "Variação", "Tendência"], tablefmt="pretty"))
+    else:
+        print("Nenhum dado disponível para exibir")
+
+    # Análise qualitativa
     try:
-        sp500 = variacoes.get('S&P500', 0)
-        dolar = variacoes.get('Dólar (USD/BRL)', 0)
-        ibov = variacoes.get('Ibovespa', 0)
-        brent = variacoes.get('Petróleo Brent', 0)
-        bitcoin = variacoes.get('Bitcoin', 0)
+        df_ibov = yf.download('^BVSP', period='1mo')
+        df_dolar = yf.download('BRL=X', period='1mo')
 
-        recomendacao = ""
-        if sp500 > 0.5 and ibov > 0.5 and dolar < -0.2:
-            recomendacao = "📈 Recomendação: Momento positivo no exterior e no Brasil. Oportunidade de COMPRA seletiva."
-        elif sp500 < -1 and ibov < -1 and dolar > 0.5:
-            recomendacao = "📉 Recomendação: Mercado em queda e dólar em alta. Melhor manter cautela ou vender ativos vulneráveis."
-        elif ibov > 0.5 and sp500 < 0:
-            recomendacao = "⚠️ Recomendação: Ibovespa positivo, mas exterior negativo. Cautela com ativos muito expostos ao mercado global."
-        else:
-            recomendacao = "⚖️ Recomendação: Cenário misto. Aguardar sinal mais claro antes de realizar novas compras."
+        if not df_ibov.empty and not df_dolar.empty:
+            var_ibov = (float(df_ibov['Close'].iloc[-1]) / float(df_ibov['Close'].iloc[0]) - 1) * 100
+            var_dolar = (float(df_dolar['Close'].iloc[-1]) / float(df_dolar['Close'].iloc[0]) - 1) * 100
 
-        print(recomendacao)
-
+            print("\n🧠 Análise do Cenário Atual:")
+            if var_ibov > 2 and var_dolar < -1:
+                print("📈 Cenário Positivo: Ibovespa em alta e dólar em queda")
+            elif var_ibov < -2 and var_dolar > 1:
+                print("📉 Cenário Negativo: Ibovespa em queda e dólar em alta")
+            else:
+                print("⚖️ Cenário Neutro: Mercado em equilíbrio")
     except Exception as e:
-        print(f"Erro ao analisar o cenário externo: {e}")
-
+        print(f"\n⚠️ Não foi possível completar a análise do cenário: {str(e)}")
 
 def main():
-    print("🚀 Iniciando análise de ações...\n")
+    print("""
+    ██╗    ██╗███████╗██╗     ██╗     
+    ██║    ██║██╔════╝██║     ██║     
+    ██║ █╗ ██║█████╗  ██║     ██║     
+    ██║███╗██║██╔══╝  ██║     ██║     
+    ╚███╔███╔╝███████╗███████╗███████╗
+     ╚══╝╚══╝ ╚══════╝╚══════╝╚══════╝
+    """)
+
+    # Lista de ações para análise
     acoes = [
-        #'JSLG3.SA',  # JSL
-        'VIVA3.SA',  # Vivara
-         'VALE3.SA',  # Vale
-         #'INTB3.SA',  # Intelbras
-         #'ARML3.SA',  # Armac
-        #'VAMO3.SA',  # Grupo Vamos
-         #'CRFB3.SA',  # Atacadão
-         #'AMER3.SA',  # Americanas
-         #'MGLU3.SA',  # Magazine Luiza
-         #'DASA3.SA',  # Dasa
-         #'HBRE3.SA',  # HBR Realty
-        #
-        #'MTRE3.SA',  # Mitre Realty
-         #'MOVI3.SA',  # Movida
-         #'CVCB3.SA',  # CVC Brasil
-         #'INBR32.SA',  # Inter
-         #'PRIO3.SA',  # PRIO
-         #'BPAC11.SA',  # BTG Pactual
-         #'MILS3.SA',  # Mills
-         #'PRNR3.SA',  # Priner
-         #'SUZB3.SA',  # Suzano
-         #'MULT3.SA',  # Multiplan
-         #'CURY3.SA',  # Cury
-        #        'VIVT3.SA',  # Telefônica Brasil
-         #'PETR4.SA',  # Petrobras
-         #'BBAS3.SA',  # Banco do Brasil
-        #        'SBSP3.SA',  # Sabesp
-         #'SIMH3.SA',  # Simpar
-         #'ECOR3.SA',  # Ecorodovias
-         #'GGBR4.SA',  # Gerdau
-         #'SLCE3.SA',  # SLC Agrícola
-         #'WEGE3.SA',  # WEG
-         #'EMBR3.SA',  # Embraer
-         #'PSSA3.SA',  # Porto Seguro
-         #'CSMG3.SA',  # Copasa
-         #'MRFG3.SA',  # Marfrig
+        'VALE3.SA',
     ]
+
+    # Primeiro verifica conexão
+    teste = yf.download('VALE3.SA', period='5d')
+    if teste.empty:
+        print("⚠️ Não foi possível conectar ao Yahoo Finance. Verifique sua internet.")
+        return
+
+    buscar_cenario_externo()
 
     for acao in acoes:
         analisar_acao(acao)
 
-    buscar_cenario_externo()
-
     if resultado_alertas:
-        print("\n📈 Ranking de Ações com Mais Alertas de Compra (Ordem Alfabética):")
-        ranking = sorted(resultado_alertas.items(), key=lambda x: x[0])  # ordena pelo nome da ação
-        for acao, datas in ranking:
-            datas_formatadas = ', '.join(data.strftime('%d/%m/%Y') for data in datas)
-            print(f"🟢 {acao}: {len(datas)} alerta(s) de COMPRA nas datas: {datas_formatadas}")
+        print("\n📈 Relatório de Alertas:")
+        ranking = sorted(resultado_alertas.items(), key=lambda x: len(x[1]), reverse=True)
+        for acao, alertas in ranking:
+            datas = ", ".join([f"{a.strftime('%d/%m')}" for a in alertas])
+            print(f"🔔 {acao}: {len(alertas)} alertas - Datas: {datas}")
     else:
-        print("\n⚠️ Nenhuma ação com alertas de compra no momento.")
+        print("\n⚠️ Nenhum alerta gerado durante a análise.")
+
+    print("\n✅ Análise concluída!")
 
 if __name__ == '__main__':
     main()
